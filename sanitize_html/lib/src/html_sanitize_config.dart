@@ -464,6 +464,13 @@ class HtmlSanitizeConfig {
 
   static final RegExp whitespacePattern = RegExp(r'\s+');
 
+  /// Characters a browser ignores when parsing a URL and resolving its scheme
+  /// (ASCII/C0 controls and space, plus C1 controls). Stripping them before
+  /// scheme checks keeps normalization aligned with how the URL is actually
+  /// interpreted at click time.
+  static final RegExp urlIgnoredCharacters =
+      RegExp('[\u0000-\u0020\u007f-\u009f]');
+
   static final RegExp base64ValuePattern = RegExp(r'^[A-Za-z0-9+/=]+$');
 
   static final RegExp dangerousMarkupRegex = RegExp(

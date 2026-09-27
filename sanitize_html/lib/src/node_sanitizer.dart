@@ -124,9 +124,11 @@ class NodeSanitizer {
   }
 
   String _normalizeUrl(String value) {
-    // Remove any whitespace including newlines/tabs
-    if (HtmlSanitizeConfig.whitespacePattern.hasMatch(value)) {
-      return value.replaceAll(HtmlSanitizeConfig.whitespacePattern, '');
+    // Remove whitespace and control characters that a browser ignores when it
+    // resolves the URL's scheme, so the checks below see the same value the
+    // browser will act on.
+    if (HtmlSanitizeConfig.urlIgnoredCharacters.hasMatch(value)) {
+      return value.replaceAll(HtmlSanitizeConfig.urlIgnoredCharacters, '');
     }
     return value;
   }

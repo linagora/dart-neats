@@ -2515,5 +2515,31 @@ void main() {
         expect(out.toLowerCase(), isNot(contains('data:application/pdf')));
       });
     });
+    group('URL normalization', () {
+      late SaneHtmlValidator validator;
+
+      setUp(() {
+        validator = SaneHtmlValidator(
+          allowElementId: (_) => true,
+          allowClassName: (_) => true,
+          addLinkRel: (_) => null,
+          allowAttributes: null,
+          allowTags: null,
+        );
+      });
+
+      test('drops href whose scheme is only reachable via ignored characters', () {
+        // A leading control character must not let a non-http scheme survive:
+        // the browser ignores it and resolves the scheme underneath.
+        final out = validator.sanitize('<a href="\u0001javascript:donttrust()">x</a>');
+        expect(out.toLowerCase(), isNot(contains('javascript:')));
+      });
+
+      test('keeps a normal https link', () {
+        final out = validator.sanitize('<a href="https://example.com/">x</a>');
+        expect(out, contains('href="https://example.com/"'));
+      });
+    });
+
   });
 }
