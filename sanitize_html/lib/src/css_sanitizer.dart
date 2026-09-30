@@ -418,4 +418,89 @@ class CssSanitizer {
 
     return buffer.toString().trim();
   }
+
+  // `@media` followed only by media-query characters. Anything else
+  // (braces, quotes, angle brackets, url(), ...) drops the block.
+  static final RegExp _safeMediaPrelude =
+      RegExp(r'^@media[a-z0-9\s():,.\-]*$', caseSensitive: false);
+
+  /// Sanitizes a stylesheet containing nested blocks.
+  /// - comments are removed first so they never become part of a prelude,
+  /// - `@media` blocks with a safe prelude are kept, their rules going
+  ///   through [sanitizeStylesheet] (same allow-list as flat CSS),
+  /// - every other at-rule (@supports, @keyframes, @font-face, ...) is dropped,
+  /// - plain rules are sanitized as flat CSS,
+  /// - unbalanced trailing content is dropped.
+  static String sanitizeNestedStylesheet(String css) {
+    css = _stripTopLevelCssComments(css.trim()).trim();
+
+    final buffer = StringBuffer();
+    for (final block in _splitTopLevelBlocks(css)) {
+      final rule = _sanitizeTopLevelBlock(block);
+      if (rule.isNotEmpty) buffer.writeln(rule);
+    }
+
+    return buffer.toString().trim();
+  }
+
+  static String _sanitizeTopLevelBlock(_CssBlock block) {
+    final prelude = block.prelude;
+
+    if (!prelude.startsWith('@')) {
+      return sanitizeStylesheet('$prelude { ${block.body} }');
+    }
+    if (!_safeMediaPrelude.hasMatch(prelude)) return '';
+
+    final inner = sanitizeStylesheet(block.body);
+    if (inner.isEmpty) return '';
+
+    return '${_normalizeWhitespace(prelude)} { $inner }';
+  }
+
+  /// Splits a stylesheet into top-level `prelude { body }` blocks. Nested
+  /// blocks stay inside their parent's body. Statements ending in `;`
+  /// (@import, @charset) are not part of the next prelude. Trailing
+  /// unbalanced content is dropped.
+  static List<_CssBlock> _splitTopLevelBlocks(String css) {
+    final blocks = <_CssBlock>[];
+    var start = 0;
+
+    while (true) {
+      final open = css.indexOf('{', start);
+      if (open == -1) break;
+
+      final close = _findMatchingBrace(css, open);
+      if (close == -1) break;
+
+      final prelude = _lastStatement(css.substring(start, open));
+      if (prelude.isNotEmpty) {
+        blocks.add(_CssBlock(prelude, css.substring(open + 1, close)));
+      }
+      start = close + 1;
+    }
+
+    return blocks;
+  }
+
+  static int _findMatchingBrace(String css, int open) {
+    var depth = 0;
+    for (var i = open; i < css.length; i++) {
+      final c = css.codeUnitAt(i);
+      if (c == 0x7B /* { */) depth++;
+      if (c == 0x7D /* } */ && --depth == 0) return i;
+    }
+    return -1;
+  }
+
+  static String _lastStatement(String segment) {
+    final end = segment.lastIndexOf(RegExp(r'[;}]'));
+    return segment.substring(end + 1).trim();
+  }
+}
+
+class _CssBlock {
+  final String prelude;
+  final String body;
+
+  const _CssBlock(this.prelude, this.body);
 }
