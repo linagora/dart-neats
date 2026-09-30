@@ -459,7 +459,7 @@ class HtmlSanitizeConfig {
   static final RegExp unitlessNumberPattern = RegExp(r'^\d+$');
 
   static final RegExp base64ImageRegex = RegExp(
-    r'^data:image\/(png|jpeg|jpg|gif|bmp);base64,[A-Za-z0-9+/]+={0,2}$',
+    r'^data:image\/(png|jpeg|jpg|gif|bmp|webp);base64,[A-Za-z0-9+/]+={0,2}$',
   );
 
   static final RegExp whitespacePattern = RegExp(r'\s+');

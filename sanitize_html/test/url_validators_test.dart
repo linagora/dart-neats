@@ -9,6 +9,10 @@ void main() {
       expect(UrlValidators.validLink('mailto:test@example.com'), true);
     });
 
+    test('validLink accepts tel', () {
+      expect(UrlValidators.validLink('tel:+33123456789'), true);
+    });
+
     test('validLink rejects javascript', () {
       expect(UrlValidators.validLink('javascript:alert(1)'), false);
     });
@@ -20,6 +24,13 @@ void main() {
 
     test('validUrl rejects mailto', () {
       expect(UrlValidators.validUrl('mailto:abc'), false);
+    });
+
+    test('validBase64Image accepts webp', () {
+      expect(
+        UrlValidators.validBase64Image('data:image/webp;base64,UklGRg=='),
+        isTrue,
+      );
     });
 
     test('validBase64Image Valid Base64 PNG image string', () {
