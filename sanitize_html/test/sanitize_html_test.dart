@@ -60,6 +60,14 @@ void main() {
   testContains('a < b', '&lt;');
   testContains('a < b > c', '&gt;');
   testContains('<p>hello', 'hello');
+  testContains(
+    '<a href="tel:+33123456789">call</a>',
+    'href="tel:+33123456789"',
+  );
+  testContains(
+    '<img src="data:image/webp;base64,UklGRg==">',
+    'src="data:image/webp;base64,UklGRg=="',
+  );
   testContains('<p>hello', '</p>');
   testContains('<p>hello', '<p>');
 
