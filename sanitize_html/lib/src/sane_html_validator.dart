@@ -104,6 +104,15 @@ class SaneHtmlValidator {
     return buffer.toString();
   }
 
+  // Fail closed: a stylesheet that cannot be sanitized is dropped.
+  String _sanitizeNestedCss(String css) {
+    try {
+      return CssSanitizer.sanitizeNestedStylesheet(css);
+    } catch (_) {
+      return '';
+    }
+  }
+
   // Detect nested CSS blocks using a single-pass scan to avoid
   // regex backtracking on malformed or attacker-controlled input.
   bool containsNestedCss(String css) {
@@ -194,10 +203,10 @@ class SaneHtmlValidator {
     final safeStyles = extractedStyles
         .map((s) {
           final css = s.css;
-          // Nested CSS → PRESERVE
+          // Nested CSS → keep @media only, allow-list every declaration
           if (containsNestedCss(css)) {
             return ExtractedStyle(
-              css: CssSanitizer.stripDangerousTokens(css),
+              css: _sanitizeNestedCss(css),
               media: s.media,
             );
           }

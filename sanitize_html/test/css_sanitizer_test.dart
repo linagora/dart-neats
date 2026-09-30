@@ -298,6 +298,96 @@ void main() {
     });
   });
 
+  group('CssSanitizer – nested stylesheet', () {
+    String sanitize(String css) => CssSanitizer.sanitizeNestedStylesheet(css);
+
+    test('keeps @media with allow-listed rules and drops other properties', () {
+      final out = sanitize(
+          '.a{color:red} @media (max-width:600px){.a{width:100%;position:fixed}}');
+
+      expect(out, contains('@media (max-width:600px)'));
+      expect(out, contains('width: 100%'));
+      expect(out, isNot(contains('position')));
+    });
+
+    test('keeps @media preceded by a CSS comment', () {
+      final out = sanitize(
+          '.a{color:red} /* phones */ @media (max-width:600px){.a{width:100%}}');
+
+      expect(out, contains('@media'));
+      expect(out, contains('width: 100%'));
+    });
+
+    test('keeps dark mode @media preceded by a CSS comment', () {
+      final out = sanitize(
+          '/* dark */ @media (prefers-color-scheme: dark){body{color:#eee}}');
+
+      expect(out, contains('prefers-color-scheme'));
+      expect(out, contains('#eee'));
+    });
+
+    test('drops @media whose rules are all disallowed', () {
+      expect(sanitize('@media all{body{position:fixed;z-index:9999}}'), '');
+    });
+
+    test('drops @supports, @keyframes and @font-face', () {
+      expect(
+        sanitize('@supports (display:grid){.a{color:red}} '
+            '@keyframes k{from{opacity:0}} '
+            '@font-face{font-family:x;src:url(https://e/f.woff)}'),
+        '',
+      );
+    });
+
+    test('drops @media whose prelude has unexpected characters', () {
+      expect(sanitize('@media screen<script>{.a{color:red}}'), '');
+      expect(sanitize('@media "x"{.a{color:red}}'), '');
+    });
+
+    test('treats url() inside @media like flat CSS', () {
+      const decl = '.a{background-image:url(https://e/i.png)}';
+      final flat = CssSanitizer.sanitizeStylesheet(decl);
+      final nested = sanitize('@media all{$decl}');
+
+      expect(flat, contains('url(https://e/i.png)'));
+      expect(nested, '@media all { $flat }');
+    });
+
+    test('removes javascript: url() inside @media', () {
+      expect(
+        sanitize('@media all{.a{background:url(javascript:alert(1))}}'),
+        isNot(contains('javascript')),
+      );
+    });
+
+    test('drops @media nested inside @media', () {
+      expect(
+        sanitize('@media all{@media all{.a{position:fixed}}}'),
+        isNot(contains('position')),
+      );
+    });
+
+    test('drops unbalanced trailing content', () {
+      expect(sanitize('@media all{.a{color:red}'), '');
+    });
+
+    test('does not let a brace inside a string keep a disallowed property',
+        () {
+      expect(
+        sanitize('.a{content:"}"} @media all{.b{position:fixed}}'),
+        isNot(contains('position')),
+      );
+    });
+
+    test('strips @import and keeps the following @media', () {
+      final out =
+          sanitize('@import url(https://e/x.css); @media all{.a{color:red}}');
+
+      expect(out, isNot(contains('@import')));
+      expect(out, contains('color: red'));
+    });
+  });
+
   group(
       'CssSanitizer.sanitizeInline – protocol-relative URL (//domain) blocking',
       () {

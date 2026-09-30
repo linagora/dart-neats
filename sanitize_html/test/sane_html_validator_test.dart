@@ -140,7 +140,7 @@ void main() {
         ''');
 
           expect(out.contains('<p>Hi</p>'), true);
-          expect(out.contains('position'), true);
+          expect(out.contains('position'), false);
           expect(out.contains('@media'), true);
         });
       });
@@ -1493,6 +1493,24 @@ void main() {
         );
       });
 
+      test('applies the property allow-list inside @media of a <style>', () {
+        final out = validator.sanitize(
+          '<style>@media all{body{position:fixed}} .a{color:red}</style><p class="a">x</p>',
+        );
+
+        expect(out.contains('position'), false);
+        expect(out.contains('color: red'), true);
+      });
+
+      test('keeps a dark mode @media preceded by a CSS comment', () {
+        final out = validator.sanitize(
+          '<style>/* c */ @media (prefers-color-scheme: dark){p{color:#eee}}</style><p>x</p>',
+        );
+
+        expect(out.contains('prefers-color-scheme'), true);
+        expect(out.contains('#eee'), true);
+      });
+
       test('keeps safe url() in background-image', () {
         final out = validator.sanitize(
           '<p style="background-image: url(/images/header.jpg); padding: 20px;">X</p>',
@@ -2141,7 +2159,8 @@ void main() {
         expect(result, isNot(contains('onload')));
       });
 
-      test('preserves nested CSS as raw text', () {
+      test('keeps the parent declarations of a nested rule and drops the child',
+          () {
         const html = '''
 <style>
 .get-app {
@@ -2155,7 +2174,8 @@ void main() {
         final out = sanitizer.sanitize(html);
 
         expect(out, contains('.get-app {'));
-        expect(out, contains('.inner'));
+        expect(out, contains('display: flex'));
+        expect(out, isNot(contains('.inner')));
       });
     });
 
@@ -2172,7 +2192,7 @@ void main() {
         );
       });
 
-      test('preserves flat CSS and nested CSS together', () {
+      test('keeps flat CSS and the parent declarations of nested CSS', () {
         const html = '''
 <style>
 .flat {
@@ -2198,15 +2218,16 @@ void main() {
         expect(out, contains('.flat'));
         expect(out, contains('color: red'));
 
-        // Nested CSS preserved as raw text
+        // Nested rule: parent declarations kept, child rule dropped
         expect(out, contains('.parent {'));
-        expect(out, contains('.child'));
+        expect(out, contains('display: flex'));
+        expect(out, isNot(contains('.child')));
 
         // HTML preserved
         expect(out, contains('<div class="flat parent">'));
       });
 
-      test('sanitizes flat CSS while preserving nested CSS', () {
+      test('sanitizes flat CSS and nested CSS', () {
         const html = '''
 <style>
 .safe {
@@ -2233,12 +2254,12 @@ void main() {
         expect(out, contains('.safe'));
         expect(out, isNot(contains('javascript:alert(1)')));
 
-        // Nested CSS: preserved but token stripped
-        expect(out, contains('.inner'));
+        // Nested CSS: wrapper kept, child rule dropped
+        expect(out, contains('.wrapper'));
         expect(out, isNot(contains('javascript:alert(2)')));
       });
 
-      test('does not normalize nested CSS structure', () {
+      test('drops a rule nested inside another rule', () {
         const html = '''
 <style>
 .block {
@@ -2254,12 +2275,12 @@ void main() {
 
         final out = validator.sanitize(html);
 
-        // Preserve original formatting intent
-        expect(out, contains('.nested'));
-        expect(out, contains('margin-top:    10px'));
+        expect(out, contains('.block'));
+        expect(out, isNot(contains('.nested')));
+        expect(out, isNot(contains('margin-top')));
       });
 
-      test('strips @import but preserves remaining flat and nested CSS', () {
+      test('strips @import but keeps the remaining flat and parent CSS', () {
         const html = '''
 <style>
 @import url("https://evil.com/x.css");
@@ -2290,12 +2311,12 @@ void main() {
         expect(out, contains('.flat'));
         expect(out, contains('color: green'));
 
-        // Nested CSS preserved
+        // Nested CSS: parent kept, child dropped
         expect(out, contains('.container'));
-        expect(out, contains('.item'));
+        expect(out, isNot(contains('.item')));
       });
 
-      test('preserves nested CSS when no flat CSS exists', () {
+      test('keeps the parent of nested CSS when no flat CSS exists', () {
         const html = '''
 <style>
 .outer {
@@ -2312,11 +2333,12 @@ void main() {
         final out = validator.sanitize(html);
 
         expect(out, contains('.outer'));
-        expect(out, contains('.inner'));
-        expect(out, contains('width: 100%'));
+        expect(out, contains('display: block'));
+        expect(out, isNot(contains('.inner')));
+        expect(out, isNot(contains('width: 100%')));
       });
 
-      test('preserves nested CSS inside media query', () {
+      test('keeps allow-listed rules inside media query', () {
         const html = '''
 <style>
 @media only screen and (max-width: 600px) {
@@ -2334,10 +2356,9 @@ void main() {
 
         final out = validator.sanitize(html);
 
-        // media query preserved
         expect(out, contains('@media'));
         expect(out, contains('.box'));
-        expect(out, contains('.item'));
+        expect(out, isNot(contains('.item')));
       });
 
       test('mixed CSS does not break base64 urls', () {
@@ -2347,13 +2368,13 @@ void main() {
   background-image: url(data:image/png;base64,AAAABBBB);
 }
 
-.parent {
+@media all {
   .child {
     background-image: url(data:image/png;base64,CCCCDDDD);
   }
 }
 </style>
-<div class="flat parent child"></div>
+<div class="flat child"></div>
 ''';
 
         final out = validator.sanitize(html);
@@ -2378,9 +2399,8 @@ void main() {
 
         final out = validator.sanitize(html);
 
-        // Nested structure preserved
         expect(out, contains('.parent'));
-        expect(out, contains('.child'));
+        expect(out, isNot(contains('.child')));
 
         // Dangerous token removed
         expect(out.toLowerCase(), isNot(contains('javascript:')));
@@ -2402,7 +2422,7 @@ void main() {
 
         final out = validator.sanitize(html);
 
-        expect(out, contains('.inner'));
+        expect(out, contains('.box'));
         expect(out.toLowerCase(), isNot(contains('expression')));
       });
 
@@ -2427,44 +2447,42 @@ void main() {
         // @import must be removed
         expect(out.toLowerCase(), isNot(contains('@import')));
 
-        // Remaining CSS preserved
+        // Remaining CSS: parent kept, child dropped
         expect(out, contains('.wrapper'));
-        expect(out, contains('.item'));
+        expect(out, isNot(contains('.item')));
       });
 
       test('blocks data:text/html in nested CSS url()', () {
         const html = '''
 <style>
-.outer {
+@media all {
   .inner {
     background-image: url(data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==);
   }
 }
 </style>
-<div class="outer inner"></div>
+<div class="inner"></div>
 ''';
 
         final out = validator.sanitize(html);
 
-        expect(out, contains('.inner'));
         expect(out.toLowerCase(), isNot(contains('data:text/html')));
       });
 
       test('strips svg onload payload from nested CSS', () {
         const html = '''
 <style>
-.container {
+@media all {
   .icon {
     background-image: url("data:image/svg+xml,<svg onload=alert(1)></svg>");
   }
 }
 </style>
-<div class="container icon"></div>
+<div class="icon"></div>
 ''';
 
         final out = validator.sanitize(html);
 
-        expect(out, contains('.icon'));
         expect(out.toLowerCase(), isNot(contains('onload')));
       });
 
@@ -2482,7 +2500,6 @@ void main() {
 
         final out = validator.sanitize(html);
 
-        expect(out, contains('.inner'));
         expect(out.toLowerCase(), isNot(contains('<script')));
       });
 
@@ -2500,7 +2517,6 @@ void main() {
 
         final out = validator.sanitize(html);
 
-        expect(out, contains('.item'));
         expect(out.toLowerCase(), isNot(contains('javascript')));
       });
 
