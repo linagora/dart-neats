@@ -400,6 +400,16 @@ void main() {
       });
     });
 
+    test('drops a rule whose string is ended by an unescaped newline', () {
+      for (final nl in ['\n', '\r', '\f']) {
+        final out = sanitize('.a{color:red;margin:"x$nl;padding:("} '
+            '.b{position:fixed;color:blue}');
+
+        expect(out, isNot(contains('padding')), reason: nl.codeUnitAt(0).toString());
+        expect(out, isNot(contains('position')), reason: nl.codeUnitAt(0).toString());
+      }
+    });
+
     test('does not let a brace inside a string keep a disallowed property',
         () {
       expect(
