@@ -326,6 +326,13 @@ void main() {
       expect(out, contains('#eee'));
     });
 
+    test('keeps @media whose prelude is uppercase', () {
+      expect(
+        sanitize('@MEDIA SCREEN AND (MAX-WIDTH:600PX){.a{color:red}}'),
+        '@MEDIA SCREEN AND (MAX-WIDTH:600PX) { .a { color: red } }',
+      );
+    });
+
     test('drops @media whose rules are all disallowed', () {
       expect(sanitize('@media all{body{position:fixed;z-index:9999}}'), '');
     });
