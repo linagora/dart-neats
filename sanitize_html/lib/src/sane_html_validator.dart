@@ -43,6 +43,7 @@ class SaneHtmlValidator {
   final bool Function(String)? allowElementId;
   final bool Function(String)? allowClassName;
   final Iterable<String>? Function(String)? addLinkRel;
+  final bool Function(String)? allowLinkHref;
   final List<String>? allowAttributes;
   final List<String>? allowTags;
 
@@ -52,6 +53,7 @@ class SaneHtmlValidator {
     required this.allowElementId,
     required this.allowClassName,
     required this.addLinkRel,
+    this.allowLinkHref,
     required this.allowAttributes,
     required this.allowTags,
   }) {
@@ -59,6 +61,7 @@ class SaneHtmlValidator {
       allowId: allowElementId,
       allowClass: allowClassName,
       addLinkRel: addLinkRel,
+      allowLinkHref: allowLinkHref,
       allowAttributes: allowAttributes,
       allowTags: allowTags,
     );

@@ -7,6 +7,7 @@ class NodeSanitizer {
   final bool Function(String)? allowId;
   final bool Function(String)? allowClass;
   final Iterable<String>? Function(String)? addLinkRel;
+  final bool Function(String)? allowLinkHref;
   final List<String>? allowAttributes;
   final List<String>? allowTags;
 
@@ -14,6 +15,7 @@ class NodeSanitizer {
     required this.allowId,
     required this.allowClass,
     required this.addLinkRel,
+    this.allowLinkHref,
     required this.allowAttributes,
     required this.allowTags,
   }) {
@@ -285,6 +287,7 @@ class NodeSanitizer {
         value,
         allowId: allowId,
         allowClass: allowClass,
+        allowLinkHref: allowLinkHref,
       );
       return !ok;
     });

@@ -68,6 +68,12 @@ import 'src/sane_html_validator.dart' show SaneHtmlValidator;
 /// For more information on why to qualify outbound links,
 /// see also [Ways to Prevent Comment Spam][3].
 ///
+/// [allowLinkHref] replaces the built-in `<a href>` allow-list (http, https,
+/// mailto, relative). It receives the normalized href and only runs after
+/// dangerous schemes (javascript:, vbscript:, data:text/application, encoded
+/// JS) and protocol-relative URLs have been removed, so it cannot re-enable
+/// them.
+///
 /// [1]: https://github.com/jch/html-pipeline/blob/master/lib/html/pipeline/sanitization_filter.rb
 /// [2]: https://support.google.com/webmasters/answer/96569
 /// [3]: https://support.google.com/webmasters/answer/81749
@@ -76,6 +82,7 @@ String sanitizeHtml(
   bool Function(String)? allowElementId,
   bool Function(String)? allowClassName,
   Iterable<String>? Function(String)? addLinkRel,
+  bool Function(String)? allowLinkHref,
   List<String>? allowAttributes,
   List<String>? allowTags,
 }) {
@@ -83,6 +90,7 @@ String sanitizeHtml(
     allowElementId: allowElementId,
     allowClassName: allowClassName,
     addLinkRel: addLinkRel,
+    allowLinkHref: allowLinkHref,
     allowAttributes: allowAttributes,
     allowTags: allowTags,
   ).sanitize(htmlString);
