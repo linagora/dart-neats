@@ -1511,6 +1511,27 @@ void main() {
         expect(out.contains('#eee'), true);
       });
 
+      test('does not let a nested <style> selector close the style element', () {
+        final out = validator.sanitize(
+          '<svg><style>@media screen{.a&lt;/style&gt;&lt;img src=x onerror=alert(1)&gt;{color:red}}</style></svg><p>x</p>',
+        );
+
+        expect(
+          out,
+          '<style>@media screen { .a\\3C /style>\\3C img src=x onerror=alert(1)> { color: red } }</style>\n'
+          '<svg></svg><p>x</p>',
+        );
+      });
+
+      test('does not let a flat <style> selector close the style element', () {
+        final out = validator.sanitize(
+          '<svg><style>.a&lt;/style&gt;&lt;img src=x onerror=alert(1)&gt;{color:red}</style></svg><p>x</p>',
+        );
+
+        expect(out.contains('<img'), false);
+        expect(out.contains('</style>\\3C img'), false);
+      });
+
       test('keeps safe url() in background-image', () {
         final out = validator.sanitize(
           '<p style="background-image: url(/images/header.jpg); padding: 20px;">X</p>',
