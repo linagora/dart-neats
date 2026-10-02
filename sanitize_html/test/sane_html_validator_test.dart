@@ -2542,6 +2542,18 @@ void main() {
         });
       }
 
+      for (final prefix in ['\u00a0', '\ufeff', '\u2028', '\u3000']) {
+        test(
+            'drops href whose scheme is only reachable via Unicode whitespace '
+            'U+${prefix.codeUnitAt(0).toRadixString(16).padLeft(4, '0')}', () {
+          // Not ignored by browsers, but trim() removes it, so a consumer
+          // trimming the href would get the javascript: URL back.
+          final out = validator
+              .sanitize('<a href="${prefix}javascript:donttrust()">x</a>');
+          expect(out, '<a>x</a>');
+        });
+      }
+
       test('keeps a normal https link', () {
         final out = validator.sanitize('<a href="https://example.com/">x</a>');
         expect(out, '<a href="https://example.com/">x</a>');

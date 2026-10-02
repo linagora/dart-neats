@@ -464,12 +464,12 @@ class HtmlSanitizeConfig {
 
   static final RegExp whitespacePattern = RegExp(r'\s+');
 
-  /// Characters a browser ignores when parsing a URL and resolving its scheme
-  /// (ASCII/C0 controls and space, plus C1 controls). Stripping them before
-  /// scheme checks keeps normalization aligned with how the URL is actually
-  /// interpreted at click time.
+  /// Characters stripped from URL attributes before the scheme checks:
+  /// - Unicode whitespace (`\s`), which Dart's `trim()` also removes,
+  /// - ASCII/C0 controls and space, which browsers ignore around a URL,
+  /// - DEL and C1 controls.
   static final RegExp urlIgnoredCharacters =
-      RegExp('[\u0000-\u0020\u007f-\u009f]');
+      RegExp(r'[\s\x00-\x20\x7f-\x9f]+');
 
   static final RegExp base64ValuePattern = RegExp(r'^[A-Za-z0-9+/=]+$');
 
