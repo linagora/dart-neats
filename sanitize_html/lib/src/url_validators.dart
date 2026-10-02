@@ -18,7 +18,6 @@ class UrlValidators {
   /// - http
   /// - https
   /// - mailto
-  /// - tel
   /// - URLs without scheme (relative links)
   static bool validLink(String url) {
     final uri = _tryParse(url);
@@ -30,7 +29,6 @@ class UrlValidators {
     return uri.isScheme('https') ||
         uri.isScheme('http') ||
         uri.isScheme('mailto') ||
-        uri.isScheme('tel') ||
         !uri.hasScheme;
   }
 

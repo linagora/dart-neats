@@ -9,10 +9,6 @@ void main() {
       expect(UrlValidators.validLink('mailto:test@example.com'), true);
     });
 
-    test('validLink accepts tel', () {
-      expect(UrlValidators.validLink('tel:+33123456789'), true);
-    });
-
     test('validLink rejects javascript', () {
       expect(UrlValidators.validLink('javascript:alert(1)'), false);
     });
