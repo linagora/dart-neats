@@ -167,7 +167,9 @@ class SaneHtmlValidator {
     return styles.map((s) {
       final mediaAttr =
           s.media != null ? ' media="${_escapeAttribute(s.media!)}"' : '';
-      return '<style$mediaAttr>${s.css}</style>';
+      // `\3C ` is the CSS escape for `<`, so the CSS cannot emit `</style>`.
+      final css = s.css.replaceAll('<', r'\3C ');
+      return '<style$mediaAttr>$css</style>';
     }).join('\n');
   }
 
