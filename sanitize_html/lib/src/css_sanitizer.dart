@@ -244,6 +244,8 @@ class CssSanitizer {
       }
       if (quote != null) {
         if (c == quote) quote = null;
+        // An unescaped newline ends the string in the browser.
+        if (c == '\n' || c == '\r' || c == '\f') return false;
         continue;
       }
       if (c == '"' || c == "'") {
