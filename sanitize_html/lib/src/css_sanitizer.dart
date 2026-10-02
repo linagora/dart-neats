@@ -230,6 +230,38 @@ class CssSanitizer {
     return backslashCount % 2 == 0;
   }
 
+  // False when a `(`, `[` or quote is left open or closed without opening.
+  static bool _hasBalancedDelimiters(String s) {
+    String? quote;
+    var parens = 0;
+    var brackets = 0;
+
+    for (var i = 0; i < s.length; i++) {
+      final c = s[i];
+      if (c == '\\') {
+        i++;
+        continue;
+      }
+      if (quote != null) {
+        if (c == quote) quote = null;
+        continue;
+      }
+      if (c == '"' || c == "'") {
+        quote = c;
+      } else if (c == '(') {
+        parens++;
+      } else if (c == ')') {
+        if (--parens < 0) return false;
+      } else if (c == '[') {
+        brackets++;
+      } else if (c == ']') {
+        if (--brackets < 0) return false;
+      }
+    }
+
+    return quote == null && parens == 0 && brackets == 0;
+  }
+
   /// Main CSS inline sanitizer for style="..."
   /// NOTE:
   /// For now we normalize only a subset of properties (sizes, common text layout).
@@ -401,6 +433,13 @@ class CssSanitizer {
 
       final rawDeclarations = block.substring(braceIdx + 1).trim();
 
+      // An open delimiter swallows `}` in the browser, so the next selector
+      // would be read as declarations of this rule.
+      if (!_hasBalancedDelimiters(selector) ||
+          !_hasBalancedDelimiters(rawDeclarations)) {
+        continue;
+      }
+
       // Use the same inline sanitizer so that:
       // - url() comment stripping works
       // - forbiddenCss inspection works uniformly
@@ -449,7 +488,10 @@ class CssSanitizer {
     if (!prelude.startsWith('@')) {
       return sanitizeStylesheet('$prelude { ${block.body} }');
     }
-    if (!_safeMediaPrelude.hasMatch(prelude)) return '';
+    if (!_safeMediaPrelude.hasMatch(prelude) ||
+        !_hasBalancedDelimiters(prelude)) {
+      return '';
+    }
 
     final inner = sanitizeStylesheet(block.body);
     if (inner.isEmpty) return '';
