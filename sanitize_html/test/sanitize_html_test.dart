@@ -385,5 +385,40 @@ void main() {
         expect(result, contains('Click'));
       });
     });
+
+    group('allowLinkHref', () {
+      bool geoOnly(String href) => href.startsWith('geo:');
+
+      test('keeps an href the hook accepts', () {
+        final out = sanitizeHtml('<a href="geo:1,2">x</a>', allowLinkHref: geoOnly);
+        expect(out, contains('href="geo:1,2"'));
+      });
+
+      test('drops an href the hook rejects, even for https', () {
+        final out = sanitizeHtml('<a href="https://a.b">x</a>', allowLinkHref: geoOnly);
+        expect(out, isNot(contains('href')));
+        expect(out, contains('x'));
+      });
+
+      for (final href in const [
+        'javascript:alert(1)',
+        'java\tscript:alert(1)',
+        'data:text/html,x',
+        '//evil.example',
+      ]) {
+        test('cannot re-enable ${href.replaceAll('\t', r'\t')}', () {
+          final out = sanitizeHtml('<a href="$href">x</a>', allowLinkHref: (_) => true);
+          expect(out, isNot(contains('href')));
+          expect(out, contains('x'));
+        });
+      }
+
+      test('without a hook keeps https, mailto and fragment, drops geo', () {
+        expect(sanitizeHtml('<a href="https://a.b">x</a>'), contains('href="https://a.b"'));
+        expect(sanitizeHtml('<a href="mailto:a@b.c">x</a>'), contains('href="mailto:a@b.c"'));
+        expect(sanitizeHtml('<a href="#top">x</a>'), contains('href="#top"'));
+        expect(sanitizeHtml('<a href="geo:1,2">x</a>'), isNot(contains('href')));
+      });
+    });
   });
 }
