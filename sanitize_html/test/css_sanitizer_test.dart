@@ -296,6 +296,16 @@ void main() {
 
       expect(CssSanitizer.sanitizeStylesheet(css), 'p { color: blue }');
     });
+
+    test('keeps rules whose parens, brackets and quotes are balanced', () {
+      expect(
+        CssSanitizer.sanitizeStylesheet(
+            r'.a:not(.b){color:red} p[title="x)"]{color:blue} .sm\(x{color:green}'),
+        '.a:not(.b) { color: red }\n'
+        'p[title="x)"] { color: blue }\n'
+        r'.sm\(x { color: green }',
+      );
+    });
   });
 
   group('CssSanitizer – nested stylesheet', () {
@@ -349,6 +359,7 @@ void main() {
     test('drops @media whose prelude has unexpected characters', () {
       expect(sanitize('@media screen<script>{.a{color:red}}'), '');
       expect(sanitize('@media "x"{.a{color:red}}'), '');
+      expect(sanitize('@media (max-width:600px{.a{color:red}}'), '');
     });
 
     test('treats url() inside @media like flat CSS', () {
@@ -376,6 +387,17 @@ void main() {
 
     test('drops unbalanced trailing content', () {
       expect(sanitize('@media all{.a{color:red}'), '');
+    });
+
+    test('drops a rule that leaves a paren, bracket or quote open', () {
+      const closers = {'rgb(1': ')', 'a[1': ']', '"x': '"'};
+      closers.forEach((open, close) {
+        final out = sanitize('@media screen{.a{color:$open} $close ; '
+            'position:fixed; z-index:9999; .b{color:blue}}');
+
+        expect(out, isNot(contains('position')), reason: open);
+        expect(out, isNot(contains('z-index')), reason: open);
+      });
     });
 
     test('does not let a brace inside a string keep a disallowed property',
