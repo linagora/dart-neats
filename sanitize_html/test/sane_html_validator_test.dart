@@ -2523,21 +2523,28 @@ void main() {
           allowElementId: (_) => true,
           allowClassName: (_) => true,
           addLinkRel: (_) => null,
-          allowAttributes: null,
+          // An explicitly allowed href skips UrlValidators.validLink, so only
+          // the URL normalization stands between the value and the output.
+          allowAttributes: ['href'],
           allowTags: null,
         );
       });
 
-      test('drops href whose scheme is only reachable via ignored characters', () {
-        // A leading control character must not let a non-http scheme survive:
-        // the browser ignores it and resolves the scheme underneath.
-        final out = validator.sanitize('<a href="\u0001javascript:donttrust()">x</a>');
-        expect(out.toLowerCase(), isNot(contains('javascript:')));
-      });
+      for (final prefix in ['\u0001', '\u0085']) {
+        test(
+            'drops href whose scheme is only reachable via ignored character '
+            'U+${prefix.codeUnitAt(0).toRadixString(16).padLeft(4, '0')}', () {
+          // A leading control character must not let a non-http scheme survive:
+          // the browser ignores it and resolves the scheme underneath.
+          final out = validator
+              .sanitize('<a href="${prefix}javascript:donttrust()">x</a>');
+          expect(out, '<a>x</a>');
+        });
+      }
 
       test('keeps a normal https link', () {
         final out = validator.sanitize('<a href="https://example.com/">x</a>');
-        expect(out, contains('href="https://example.com/"'));
+        expect(out, '<a href="https://example.com/">x</a>');
       });
     });
 
