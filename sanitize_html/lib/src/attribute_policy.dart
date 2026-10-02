@@ -50,6 +50,7 @@ class AttributePolicy {
     String value, {
     bool Function(String)? allowId,
     bool Function(String)? allowClass,
+    bool Function(String)? allowLinkHref,
   }) {
     final normalizedAttr = attr.toLowerCase();
 
@@ -100,6 +101,9 @@ class AttributePolicy {
 
     // 6. Tag-specific attribute validators
     final tagName = node.localName?.toUpperCase();
+    if (tagName == 'A' && normalizedAttr == 'href' && allowLinkHref != null) {
+      return allowLinkHref(value);
+    }
     if (tagName != null) {
       final tagValidators = _validators[tagName];
       final validator = tagValidators?[normalizedAttr];
