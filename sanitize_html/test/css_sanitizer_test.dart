@@ -390,13 +390,12 @@ void main() {
     });
 
     test('drops a rule that leaves a paren, bracket or quote open', () {
-      const closers = {'rgb(1': ')', 'a[1': ']', '"x': '"'};
+      const closers = {'rgb(1': ')', 'a[1': ']', '"x': '"', "'x": "'"};
       closers.forEach((open, close) {
         final out = sanitize('@media screen{.a{color:$open} $close ; '
             'position:fixed; z-index:9999; .b{color:blue}}');
 
-        expect(out, isNot(contains('position')), reason: open);
-        expect(out, isNot(contains('z-index')), reason: open);
+        expect(out, '', reason: open);
       });
     });
 
