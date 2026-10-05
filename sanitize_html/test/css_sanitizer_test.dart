@@ -328,6 +328,13 @@ void main() {
       expect(out, contains('width: 100%'));
     });
 
+    test('collapses whitespace in the @media prelude', () {
+      expect(
+        sanitize('@media  screen\n\tand (max-width:600px){.a{color:red}}'),
+        '@media screen and (max-width:600px) { .a { color: red } }',
+      );
+    });
+
     test('keeps dark mode @media preceded by a CSS comment', () {
       final out = sanitize(
           '/* dark */ @media (prefers-color-scheme: dark){body{color:#eee}}');
