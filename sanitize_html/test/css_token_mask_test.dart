@@ -67,6 +67,9 @@ const _cases = [
     'éurl(x)',
   ),
   _Case('a [ before url( keeps it a url', '[url(x)', '[url(_)'),
+  _Case('a hash is not a url( name', '#url(a)', '#url(a)'),
+  _Case('an at-keyword is not a url( name', '@url(a)', '@url(a)'),
+  _Case('a lone # still ends the name before it', '\\41#(x)', '___#(x)'),
 ];
 
 void main() {
