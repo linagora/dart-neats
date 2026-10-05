@@ -45,6 +45,28 @@ const _cases = [
   ),
   _Case(
       'an escaped ) does not end an unquoted url(', r'url(a\)b)', 'url(____)'),
+  _Case('a hex escape takes letters in either case', 'a\\2aA url(x)', null),
+  _Case(
+    'a control character is not a hex digit',
+    'a\\2\u0010url(x)',
+    'a__\u0010url(_)',
+  ),
+  _Case(
+      'a tab after a hex escape belongs to the escape', 'a\\28\turl(x)', null),
+  _Case(
+    'a newline after a hex escape belongs to the escape',
+    'a\\28\nurl(x)',
+    null,
+  ),
+  _Case('a digit continues the name before (', 'a1url(x)', 'a1url(x)'),
+  _Case('an underscore continues the name before (', '_url(x)', '_url(x)'),
+  _Case('a hyphen continues the name before (', '-url(x)', '-url(x)'),
+  _Case(
+    'a non-ASCII letter continues the name before (',
+    'éurl(x)',
+    'éurl(x)',
+  ),
+  _Case('a [ before url( keeps it a url', '[url(x)', '[url(_)'),
 ];
 
 void main() {
