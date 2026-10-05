@@ -222,6 +222,17 @@ void main() {
 
       expect(out, contains('color: red'));
     });
+
+    test('keeps a ( inside a quoted url() from hiding its closing paren', () {
+      final out =
+          CssSanitizer.sanitizeInline('background-image: url("/a(b.png")');
+
+      expect(out, 'background-image: url("/a(b.png")');
+    });
+
+    test('rejects a url() value that leaves a string open', () {
+      expect(CssSanitizer.isSafeCssValue('url(/a.png) "'), isFalse);
+    });
   });
 
   group('CssSanitizer – stylesheet', () {
