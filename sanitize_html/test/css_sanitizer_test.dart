@@ -1,6 +1,15 @@
 import 'package:sanitize_html/src/css_sanitizer.dart';
 import 'package:test/test.dart';
 
+// CSS the browser splits into extra declarations that a naive scanner misses.
+const _browserSplitPayloads = [
+  r'color:\(; position:fixed; z-index:9999',
+  r'background:url(/x"); position:fixed; z-index:9999; ")',
+  r'background:url(/x(); position:fixed; z-index:9999; )',
+  r'background:\75rl(/x"); position:fixed; z-index:9999; ")',
+  'color:red /* ( */; position:fixed; z-index:9999',
+];
+
 void main() {
   group('CssSanitizer – inline CSS', () {
     test('allows safe properties', () {
@@ -197,6 +206,22 @@ void main() {
 
       expect(result, 'opacity: 1');
     });
+
+    test('reads escapes, comments and unquoted url() like the browser', () {
+      for (final p in _browserSplitPayloads) {
+        final out = CssSanitizer.sanitizeInline(p);
+
+        expect(out, isNot(contains('position')), reason: p);
+        expect(out, isNot(contains('z-index')), reason: p);
+      }
+    });
+
+    test('keeps a ; inside an unquoted url() from splitting the value', () {
+      final out = CssSanitizer.sanitizeInline(
+          'background-image: url(data:image/png;base64,iVBORw0KGgo=); color: red');
+
+      expect(out, contains('color: red'));
+    });
   });
 
   group('CssSanitizer – stylesheet', () {
@@ -305,6 +330,16 @@ void main() {
         'p[title="x)"] { color: blue }\n'
         r'.sm\(x { color: green }',
       );
+    });
+
+    test('reads escapes, comments and unquoted url() like the browser', () {
+      for (final p in _browserSplitPayloads) {
+        final out = CssSanitizer.sanitizeStylesheet('.a{$p} .b{color:blue}');
+
+        expect(out, isNot(contains('position')), reason: p);
+        expect(out, isNot(contains('z-index')), reason: p);
+        expect(out, contains('.b { color: blue }'), reason: p);
+      }
     });
   });
 
@@ -423,6 +458,15 @@ void main() {
 
         expect(out, isNot(contains('padding')), reason: nl.codeUnitAt(0).toString());
         expect(out, isNot(contains('position')), reason: nl.codeUnitAt(0).toString());
+      }
+    });
+
+    test('reads escapes, comments and unquoted url() like the browser', () {
+      for (final p in _browserSplitPayloads) {
+        final out = sanitize('@media screen{.a{$p}}');
+
+        expect(out, isNot(contains('position')), reason: p);
+        expect(out, isNot(contains('z-index')), reason: p);
       }
     });
 

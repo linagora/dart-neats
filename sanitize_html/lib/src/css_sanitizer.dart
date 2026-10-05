@@ -1,4 +1,5 @@
 import 'package:sanitize_html/src/css_dangerous_patterns.dart';
+import 'package:sanitize_html/src/css_token_mask.dart';
 import 'package:sanitize_html/src/html_sanitize_config.dart';
 
 class CssSanitizer {
@@ -54,28 +55,14 @@ class CssSanitizer {
     return value.replaceAll(HtmlSanitizeConfig.cssCommentPattern, ' ');
   }
 
+  // [s] is a CssTokenMask, so strings and escapes hold no parens.
   static int _findMatchingParen(String s, int startIndex) {
-    bool inSingle = false;
-    bool inDouble = false;
     int depth = 1;
 
     for (var i = startIndex; i < s.length; i++) {
-      final c = s[i];
-
-      if (c == "'" && !inDouble && _isNotEscaped(s, i)) {
-        inSingle = !inSingle;
-        continue;
-      }
-      if (c == '"' && !inSingle && _isNotEscaped(s, i)) {
-        inDouble = !inDouble;
-        continue;
-      }
-
-      if (inSingle || inDouble) continue;
-
-      if (c == '(') {
+      if (s[i] == '(') {
         depth++;
-      } else if (c == ')') {
+      } else if (s[i] == ')') {
         depth--;
         if (depth == 0) return i;
       }
@@ -84,7 +71,10 @@ class CssSanitizer {
   }
 
   static bool _areAllUrlsSafeInValue(String original) {
-    final lower = original.toLowerCase();
+    final mask = CssTokenMask.of(original);
+    if (mask == null) return false;
+
+    final lower = mask.toLowerCase();
     var index = 0;
 
     while (true) {
@@ -92,7 +82,7 @@ class CssSanitizer {
       if (urlIndex == -1) break;
 
       final openParen = urlIndex + 4;
-      final closeParen = _findMatchingParen(original, openParen);
+      final closeParen = _findMatchingParen(mask, openParen);
       if (closeParen == -1) {
         return false;
       }
@@ -164,104 +154,65 @@ class CssSanitizer {
   }
 
   static List<String> _splitCssDeclarations(String raw) {
+    // Split on the mask so escapes, comments and url() read as in the browser.
+    final mask = CssTokenMask.of(raw);
+    if (mask == null) return const [];
+
     final result = <String>[];
-    final buffer = StringBuffer();
-
-    var inSingleQuote = false;
-    var inDoubleQuote = false;
     var parenDepth = 0;
+    var start = 0;
 
-    for (var i = 0; i < raw.length; i++) {
-      final ch = raw[i];
-
-      if (ch == "'" && !inDoubleQuote && _isNotEscaped(raw, i)) {
-        inSingleQuote = !inSingleQuote;
-        buffer.write(ch);
-        continue;
+    for (var i = 0; i < mask.length; i++) {
+      final ch = mask[i];
+      if (ch == ';' && parenDepth == 0) {
+        _addTrimmed(result, raw.substring(start, i));
+        start = i + 1;
+      } else {
+        final next = parenDepth + (ch == '(' ? 1 : (ch == ')' ? -1 : 0));
+        parenDepth = next < 0 ? 0 : next;
       }
-      if (ch == '"' && !inSingleQuote && _isNotEscaped(raw, i)) {
-        inDoubleQuote = !inDoubleQuote;
-        buffer.write(ch);
-        continue;
-      }
-
-      if (!inSingleQuote && !inDoubleQuote) {
-        if (ch == '(') {
-          parenDepth++;
-          buffer.write(ch);
-          continue;
-        }
-        if (ch == ')') {
-          if (parenDepth > 0) parenDepth--;
-          buffer.write(ch);
-          continue;
-        }
-
-        if (ch == ';' && parenDepth == 0) {
-          final part = buffer.toString().trim();
-          if (part.isNotEmpty) {
-            result.add(part);
-          }
-          buffer.clear();
-          continue;
-        }
-      }
-
-      buffer.write(ch);
     }
-
-    final tail = buffer.toString().trim();
-    if (tail.isNotEmpty) {
-      result.add(tail);
-    }
+    _addTrimmed(result, raw.substring(start));
 
     return result;
   }
 
-  static bool _isNotEscaped(String raw, int i) {
-    if (i == 0) return true;
-    // Count consecutive backslashes before position i
-    var backslashCount = 0;
-    for (var j = i - 1; j >= 0 && raw[j] == '\\'; j--) {
-      backslashCount++;
-    }
-
-    // Even number of backslashes (including 0) means not escaped
-    return backslashCount % 2 == 0;
+  static void _addTrimmed(List<String> out, String part) {
+    final trimmed = part.trim();
+    if (trimmed.isNotEmpty) out.add(trimmed);
   }
 
-  // False when a `(`, `[` or quote is left open or closed without opening.
-  static bool _hasBalancedDelimiters(String s) {
-    String? quote;
-    var parens = 0;
-    var brackets = 0;
+  // False when a `(` or `[` is left open, or the browser would read a string,
+  // escape or url() differently (CssTokenMask). A closer with nothing open
+  // fails too, except in a declaration body, where the browser ignores it
+  // (the second `)` of `url(a(b))`); an opener after it still has to close.
+  static bool _hasBalancedDelimiters(String s,
+      {bool allowStrayClosers = false}) {
+    final mask = CssTokenMask.of(s);
+    if (mask == null) return false;
 
-    for (var i = 0; i < s.length; i++) {
-      final c = s[i];
-      if (c == '\\') {
-        i++;
-        continue;
-      }
-      if (quote != null) {
-        if (c == quote) quote = null;
-        // An unescaped newline ends the string in the browser.
-        if (c == '\n' || c == '\r' || c == '\f') return false;
-        continue;
-      }
-      if (c == '"' || c == "'") {
-        quote = c;
-      } else if (c == '(') {
-        parens++;
-      } else if (c == ')') {
-        if (--parens < 0) return false;
-      } else if (c == '[') {
-        brackets++;
-      } else if (c == ']') {
-        if (--brackets < 0) return false;
-      }
+    final open = {'(': 0, '[': 0};
+    for (var i = 0; i < mask.length; i++) {
+      if (!_trackDelimiter(open, mask[i]) && !allowStrayClosers) return false;
     }
 
-    return quote == null && parens == 0 && brackets == 0;
+    return open.values.every((n) => n == 0);
+  }
+
+  static const _closerToOpener = {')': '(', ']': '['};
+
+  // Counts [c] in [open]; false when it closes something never opened.
+  static bool _trackDelimiter(Map<String, int> open, String c) {
+    if (open.containsKey(c)) {
+      open[c] = open[c]! + 1;
+      return true;
+    }
+    final opener = _closerToOpener[c];
+    if (opener == null) return true;
+    if (open[opener] == 0) return false;
+
+    open[opener] = open[opener]! - 1;
+    return true;
   }
 
   /// Main CSS inline sanitizer for style="..."
@@ -421,43 +372,41 @@ class CssSanitizer {
     // Split by block }
     final blocks = css.split('}');
 
-    for (var block in blocks) {
-      block = block.trim();
-      if (block.isEmpty) continue;
-
-      final braceIdx = block.indexOf('{');
-      if (braceIdx <= 0) continue;
-
-      final selector = block.substring(0, braceIdx).trim();
-
-      // Block @media, @supports, @keyframes, etc.
-      if (selector.startsWith('@')) continue;
-
-      final rawDeclarations = block.substring(braceIdx + 1).trim();
-
-      // An open delimiter swallows `}` in the browser, so the next selector
-      // would be read as declarations of this rule.
-      if (!_hasBalancedDelimiters(selector) ||
-          !_hasBalancedDelimiters(rawDeclarations)) {
-        continue;
-      }
-
-      // Use the same inline sanitizer so that:
-      // - url() comment stripping works
-      // - forbiddenCss inspection works uniformly
-      // - multi-token url() checks are applied consistently
-      final sanitized = sanitizeInline(rawDeclarations);
-
-      if (sanitized.isEmpty) continue;
-
-      buffer
-        ..write(selector)
-        ..write(' { ')
-        ..write(sanitized)
-        ..writeln(' }');
+    for (final block in blocks) {
+      final rule = _sanitizeFlatBlock(block.trim());
+      if (rule.isNotEmpty) buffer.writeln(rule);
     }
 
     return buffer.toString().trim();
+  }
+
+  // One `selector { declarations` block of a flat stylesheet, '' if dropped.
+  static String _sanitizeFlatBlock(String block) {
+    final braceIdx = block.indexOf('{');
+    if (braceIdx <= 0) return '';
+
+    final selector = block.substring(0, braceIdx).trim();
+
+    // Block @media, @supports, @keyframes, etc.
+    if (selector.startsWith('@')) return '';
+
+    final rawDeclarations = block.substring(braceIdx + 1).trim();
+
+    // An open delimiter swallows `}` in the browser, so the next selector
+    // would be read as declarations of this rule.
+    if (!_hasBalancedDelimiters(selector) ||
+        !_hasBalancedDelimiters(rawDeclarations, allowStrayClosers: true)) {
+      return '';
+    }
+
+    // Use the same inline sanitizer so that:
+    // - url() comment stripping works
+    // - forbiddenCss inspection works uniformly
+    // - multi-token url() checks are applied consistently
+    final sanitized = sanitizeInline(rawDeclarations);
+    if (sanitized.isEmpty) return '';
+
+    return '$selector { $sanitized }';
   }
 
   // `@media` followed only by media-query characters. Anything else
