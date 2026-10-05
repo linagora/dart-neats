@@ -178,7 +178,11 @@ class _Masker {
   }
 
   void _plain(String c) {
-    if (!_isNameChar(c)) {
+    if (c == '#' || c == '@') {
+      // `#url(` and `@url(` are a hash and an at-keyword, never url(.
+      _resetName();
+      nameStart = pos;
+    } else if (!_isNameChar(c)) {
       _resetName();
     } else if (nameStart < 0) {
       nameStart = pos;
