@@ -399,6 +399,16 @@ void main() {
       });
     });
 
+    test('drops a rule that closes a paren or bracket before opening it', () {
+      const pairs = {'(': ')', '[': ']'};
+      pairs.forEach((open, close) {
+        final out = sanitize('@media screen{.a{color:$close$open} $close ; '
+            'position:fixed; z-index:9999; $open.b{color:blue}}');
+
+        expect(out, '', reason: open);
+      });
+    });
+
     test('drops a rule whose string is ended by an unescaped newline', () {
       for (final nl in ['\n', '\r', '\f']) {
         final out = sanitize('.a{color:red;margin:"x$nl;padding:("} '
