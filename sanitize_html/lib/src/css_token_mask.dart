@@ -10,11 +10,27 @@ class CssTokenMask {
   static String? of(String css) => _Masker(css).run();
 }
 
-final _hex = RegExp(r'^[0-9a-fA-F]$');
-final _newline = RegExp(r'^[\n\r\f]$');
-final _whitespace = RegExp(r'^[ \t\n\r\f]$');
-final _quote = RegExp('^["\']\$');
-final _nameChar = RegExp(r'^[a-zA-Z0-9_\-\u0080-￿]$');
+bool _isHex(String c) {
+  final u = c.codeUnitAt(0);
+  final l = u | 0x20;
+  return (u >= 0x30 && u <= 0x39) || (l >= 0x61 && l <= 0x66);
+}
+
+bool _isNewline(String c) => c == '\n' || c == '\r' || c == '\f';
+
+bool _isWhitespace(String c) => c == ' ' || c == '\t' || _isNewline(c);
+
+bool _isQuote(String c) => c == '"' || c == "'";
+
+bool _isNameChar(String c) {
+  final u = c.codeUnitAt(0);
+  final l = u | 0x20;
+  return (l >= 0x61 && l <= 0x7A) ||
+      (u >= 0x30 && u <= 0x39) ||
+      u == 0x5F ||
+      u == 0x2D ||
+      u >= 0x80;
+}
 
 class _Masker {
   _Masker(this.css);
@@ -37,7 +53,7 @@ class _Masker {
   bool _step() {
     final c = css[pos];
     if (c == r'\') return _escape();
-    if (_quote.hasMatch(c)) return _string(c);
+    if (_isQuote(c)) return _string(c);
     if (css.startsWith('/*', pos)) return _comment();
     if (c == '(') return _paren();
     _plain(c);
@@ -71,12 +87,12 @@ class _Masker {
   // is not one.
   int _escapeEnd() {
     final next = pos + 1;
-    if (next >= css.length || _newline.hasMatch(css[next])) return next;
-    if (!_hex.hasMatch(css[next])) return next + 1;
+    if (next >= css.length || _isNewline(css[next])) return next;
+    if (!_isHex(css[next])) return next + 1;
 
     final limit = math.min(pos + 7, css.length);
     var j = next;
-    while (j < limit && _hex.hasMatch(css[j])) {
+    while (j < limit && _isHex(css[j])) {
       j++;
     }
     return j + _hexTrailerLength(j);
@@ -85,7 +101,7 @@ class _Masker {
   // One whitespace (or CRLF) after a hex escape belongs to the escape.
   int _hexTrailerLength(int j) {
     if (css.startsWith('\r\n', j)) return 2;
-    if (j < css.length && _whitespace.hasMatch(css[j])) return 1;
+    if (j < css.length && _isWhitespace(css[j])) return 1;
     return 0;
   }
 
@@ -112,7 +128,7 @@ class _Masker {
         continue;
       }
       if (c == quote) return j;
-      if (_newline.hasMatch(c)) return -1;
+      if (_isNewline(c)) return -1;
       j++;
     }
     return -1;
@@ -140,10 +156,10 @@ class _Masker {
   // The browser ends an unquoted url( at its first `)`, whatever it holds.
   void _blankUnquotedUrl() {
     var j = pos;
-    while (j < css.length && _whitespace.hasMatch(css[j])) {
+    while (j < css.length && _isWhitespace(css[j])) {
       j++;
     }
-    if (j < css.length && _quote.hasMatch(css[j])) return;
+    if (j < css.length && _isQuote(css[j])) return;
 
     _blank(_urlEnd(j));
   }
@@ -162,7 +178,7 @@ class _Masker {
   }
 
   void _plain(String c) {
-    if (!_nameChar.hasMatch(c)) {
+    if (!_isNameChar(c)) {
       _resetName();
     } else if (nameStart < 0) {
       nameStart = pos;
